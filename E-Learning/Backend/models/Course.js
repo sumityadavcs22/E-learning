@@ -3,29 +3,44 @@ const mongoose = require("mongoose")
 const lessonSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
+    required: [true, "Lesson title is required"],
     trim: true,
   },
   description: {
     type: String,
+    trim: true,
+  },
+  content: {
+    type: String,
+    required: [true, "Lesson content is required"],
+  },
+  videoUrl: {
+    type: String,
+    trim: true,
+  },
+  duration: {
+    type: Number, // in minutes
+    default: 0,
+  },
+  order: {
+    type: Number,
     required: true,
   },
-  videoUrl: String,
-  duration: Number, // in minutes
+  isPreview: {
+    type: Boolean,
+    default: false,
+  },
   resources: [
     {
       title: String,
       url: String,
       type: {
         type: String,
-        enum: ["pdf", "link", "video", "document"],
+        enum: ["pdf", "video", "link", "document"],
+        default: "link",
       },
     },
   ],
-  order: {
-    type: Number,
-    required: true,
-  },
 })
 
 const courseSchema = new mongoose.Schema(
@@ -39,61 +54,90 @@ const courseSchema = new mongoose.Schema(
     description: {
       type: String,
       required: [true, "Course description is required"],
+      trim: true,
       maxlength: [1000, "Description cannot exceed 1000 characters"],
     },
     shortDescription: {
       type: String,
-      required: true,
+      trim: true,
       maxlength: [200, "Short description cannot exceed 200 characters"],
     },
     instructor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "Instructor is required"],
     },
     category: {
       type: String,
-      required: true,
-      enum: ["Programming", "Design", "Business", "Marketing", "Data Science", "Other"],
+      required: [true, "Category is required"],
+      enum: [
+        "Programming",
+        "Web Development",
+        "Mobile Development",
+        "Data Science",
+        "Machine Learning",
+        "Design",
+        "Business",
+        "Marketing",
+        "Photography",
+        "Music",
+        "Language",
+        "Other",
+      ],
     },
     level: {
       type: String,
-      required: true,
+      required: [true, "Level is required"],
       enum: ["Beginner", "Intermediate", "Advanced"],
     },
     price: {
       type: Number,
-      required: true,
+      required: [true, "Price is required"],
       min: [0, "Price cannot be negative"],
+      default: 0,
     },
     thumbnail: {
       type: String,
-      required: true,
+      default: "",
     },
     lessons: [lessonSchema],
-    totalDuration: {
-      type: Number,
-      default: 0, // in minutes
-    },
-    enrolledStudents: [
+    tags: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        type: String,
+        trim: true,
       },
     ],
-    rating: {
-      average: {
-        type: Number,
-        default: 0,
-        min: 0,
-        max: 5,
+    requirements: [
+      {
+        type: String,
+        trim: true,
       },
-      count: {
-        type: Number,
-        default: 0,
+    ],
+    whatYouWillLearn: [
+      {
+        type: String,
+        trim: true,
       },
-    },
-    reviews: [
+    ],
+    enrolledStudents: [
+      {
+        student: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        enrolledAt: {
+          type: Date,
+          default: Date.now,
+        },
+        progress: {
+          type: Number,
+          default: 0,
+          min: 0,
+          max: 100,
+        },
+      },
+    ],
+    ratings: [
       {
         user: {
           type: mongoose.Schema.Types.ObjectId,
@@ -105,34 +149,109 @@ const courseSchema = new mongoose.Schema(
           min: 1,
           max: 5,
         },
-        comment: String,
+        review: {
+          type: String,
+          trim: true,
+        },
         createdAt: {
           type: Date,
           default: Date.now,
         },
       },
     ],
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    totalRatings: {
+      type: Number,
+      default: 0,
+    },
     isPublished: {
       type: Boolean,
       default: false,
     },
-    tags: [String],
-    requirements: [String],
-    whatYouWillLearn: [String],
+    publishedAt: {
+      type: Date,
+    },
+    totalDuration: {
+      type: Number, // in minutes
+      default: 0,
+    },
+    language: {
+      type: String,
+      default: "English",
+    },
+    lastUpdated: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,
   },
 )
 
-// Calculate total duration before saving
-courseSchema.pre("save", function (next) {
-  if (this.lessons && this.lessons.length > 0) {
-    this.totalDuration = this.lessons.reduce((total, lesson) => {
-      return total + (lesson.duration || 0)
-    }, 0)
+// Indexes for better query performance
+courseSchema.index({ title: "text", description: "text" })
+courseSchema.index({ category: 1 })
+courseSchema.index({ level: 1 })
+courseSchema.index({ isPublished: 1 })
+courseSchema.index({ averageRating: -1 })
+courseSchema.index({ createdAt: -1 })
+
+// Virtual for enrolled students count
+courseSchema.virtual("enrolledCount").get(function () {
+  return this.enrolledStudents.length
+})
+
+// Virtual for lessons count
+courseSchema.virtual("lessonsCount").get(function () {
+  return this.lessons.length
+})
+
+// Method to calculate average rating
+courseSchema.methods.calculateAverageRating = function () {
+  if (this.ratings.length === 0) {
+    this.averageRating = 0
+    this.totalRatings = 0
+    return
   }
+
+  const sum = this.ratings.reduce((acc, rating) => acc + rating.rating, 0)
+  this.averageRating = Math.round((sum / this.ratings.length) * 10) / 10
+  this.totalRatings = this.ratings.length
+}
+
+// Method to calculate total duration
+courseSchema.methods.calculateTotalDuration = function () {
+  this.totalDuration = this.lessons.reduce((total, lesson) => total + (lesson.duration || 0), 0)
+}
+
+// Pre-save middleware to update calculated fields
+courseSchema.pre("save", function (next) {
+  this.calculateAverageRating()
+  this.calculateTotalDuration()
+  this.lastUpdated = new Date()
+
+  if (this.isPublished && !this.publishedAt) {
+    this.publishedAt = new Date()
+  }
+
   next()
 })
+
+// Method to check if user is enrolled
+courseSchema.methods.isUserEnrolled = function (userId) {
+  return this.enrolledStudents.some((enrollment) => enrollment.student.toString() === userId.toString())
+}
+
+// Method to get user's progress
+courseSchema.methods.getUserProgress = function (userId) {
+  const enrollment = this.enrolledStudents.find((enrollment) => enrollment.student.toString() === userId.toString())
+  return enrollment ? enrollment.progress : 0
+}
 
 module.exports = mongoose.model("Course", courseSchema)

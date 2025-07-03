@@ -1,76 +1,105 @@
 const mongoose = require("mongoose")
 
-const questionSchema = new mongoose.Schema({
-  question: {
-    type: String,
-    required: true,
-  },
-  type: {
-    type: String,
-    enum: ["multiple-choice", "true-false", "drag-drop", "fill-blank"],
-    required: true,
-  },
-  options: [
-    {
-      text: String,
-      isCorrect: Boolean,
-    },
-  ],
-  correctAnswer: String,
-  explanation: String,
-  points: {
-    type: Number,
-    default: 1,
-  },
-})
-
-const quizSchema = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
-    title: {
+    name: {
       type: String,
-      required: true,
+      required: [true, "Name is required"],
       trim: true,
+      maxlength: [50, "Name cannot exceed 50 characters"],
     },
-    description: String,
-    course: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course",
-      required: true,
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, "Please enter a valid email"],
     },
-    lesson: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: false,
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: [6, "Password must be at least 6 characters"],
     },
-    questions: [questionSchema],
-    timeLimit: {
-      type: Number, // in minutes
-      default: 30,
+    role: {
+      type: String,
+      enum: ["student", "admin"],
+      default: "student",
     },
-    passingScore: {
-      type: Number,
-      default: 70, // percentage
+    avatar: {
+      type: String,
+      default: "",
     },
-    attempts: [
+    enrolledCourses: [
       {
-        user: {
+        course: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "User",
+          ref: "Course",
         },
-        answers: [
-          {
-            questionId: mongoose.Schema.Types.ObjectId,
-            answer: String,
-            isCorrect: Boolean,
-          },
-        ],
-        score: Number,
-        completedAt: {
+        enrolledAt: {
           type: Date,
           default: Date.now,
         },
-        timeSpent: Number, // in minutes
+        progress: {
+          type: Number,
+          default: 0,
+          min: 0,
+          max: 100,
+        },
+        completedLessons: [
+          {
+            type: mongoose.Schema.Types.ObjectId,
+          },
+        ],
+        lastAccessed: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
+    achievements: [
+      {
+        title: String,
+        description: String,
+        earnedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        icon: String,
+      },
+    ],
+    preferences: {
+      theme: {
+        type: String,
+        enum: ["light", "dark", "system"],
+        default: "system",
+      },
+      notifications: {
+        email: {
+          type: Boolean,
+          default: true,
+        },
+        push: {
+          type: Boolean,
+          default: true,
+        },
+        courseUpdates: {
+          type: Boolean,
+          default: true,
+        },
+        achievements: {
+          type: Boolean,
+          default: true,
+        },
+      },
+      language: {
+        type: String,
+        default: "en",
+      },
+    },
+    lastLogin: {
+      type: Date,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -81,4 +110,34 @@ const quizSchema = new mongoose.Schema(
   },
 )
 
-module.exports = mongoose.model("Quiz", quizSchema)
+// Index for better query performance
+userSchema.index({ email: 1 })
+userSchema.index({ role: 1 })
+userSchema.index({ "enrolledCourses.course": 1 })
+
+// Virtual for enrolled courses count
+userSchema.virtual("enrolledCoursesCount").get(function () {
+  return this.enrolledCourses.length
+})
+
+// Method to check if user is enrolled in a course
+userSchema.methods.isEnrolledIn = function (courseId) {
+  return this.enrolledCourses.some((enrollment) => enrollment.course.toString() === courseId.toString())
+}
+
+// Method to get course progress
+userSchema.methods.getCourseProgress = function (courseId) {
+  const enrollment = this.enrolledCourses.find((enrollment) => enrollment.course.toString() === courseId.toString())
+  return enrollment ? enrollment.progress : 0
+}
+
+// Method to update course progress
+userSchema.methods.updateCourseProgress = function (courseId, progress) {
+  const enrollment = this.enrolledCourses.find((enrollment) => enrollment.course.toString() === courseId.toString())
+  if (enrollment) {
+    enrollment.progress = Math.min(100, Math.max(0, progress))
+    enrollment.lastAccessed = new Date()
+  }
+}
+
+module.exports = mongoose.model("User", userSchema)

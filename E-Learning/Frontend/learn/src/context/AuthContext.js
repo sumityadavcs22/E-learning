@@ -18,6 +18,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState(localStorage.getItem("token"))
 
+  // Set your backend API URL here or use environment variable
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000"
+
   // Set up axios defaults
   useEffect(() => {
     if (token) {
@@ -33,7 +36,7 @@ export const AuthProvider = ({ children }) => {
       const storedToken = localStorage.getItem("token")
       if (storedToken) {
         try {
-          const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/me`)
+          const response = await axios.get(`${API_URL}/api/auth/me`)
           setUser(response.data)
           setToken(storedToken)
         } catch (error) {
@@ -46,11 +49,11 @@ export const AuthProvider = ({ children }) => {
     }
 
     checkAuth()
-  }, [])
+  }, [API_URL])
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
         email,
         password,
       })
@@ -61,7 +64,7 @@ export const AuthProvider = ({ children }) => {
       setToken(newToken)
       setUser(userData)
 
-      return { success: true }
+      return { success: true, user: userData }
     } catch (error) {
       console.error("Login error:", error)
       return {
@@ -71,12 +74,13 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, role = "student") => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, {
+      const response = await axios.post(`${API_URL}/api/auth/register`, {
         name,
         email,
         password,
+        role,
       })
 
       const { token: newToken, user: userData } = response.data
@@ -85,7 +89,7 @@ export const AuthProvider = ({ children }) => {
       setToken(newToken)
       setUser(userData)
 
-      return { success: true }
+      return { success: true, user: userData }
     } catch (error) {
       console.error("Registration error:", error)
       return {

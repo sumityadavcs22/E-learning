@@ -4,28 +4,41 @@ const auth = require("../middleware/auth")
 
 const router = express.Router()
 
-// Get quiz by ID
+// @route   GET /api/quizzes/:id
+// @desc    Get quiz by ID
+// @access  Private
 router.get("/:id", auth, async (req, res) => {
   try {
-    const quiz = await Quiz.findById(req.params.id)
-      .populate("course", "title")
-      .select("-questions.options.isCorrect -questions.correctAnswer")
+    const quiz = await Quiz.findById(req.params.id).populate("course", "title")
 
     if (!quiz) {
       return res.status(404).json({ message: "Quiz not found" })
     }
 
-    res.json(quiz)
+    // Don't send correct answers to client
+    const quizData = {
+      ...quiz.toObject(),
+      questions: quiz.questions.map((q) => ({
+        _id: q._id,
+        question: q.question,
+        options: q.options,
+        type: q.type,
+      })),
+    }
+
+    res.json(quizData)
   } catch (error) {
     console.error("Get quiz error:", error)
     res.status(500).json({ message: "Server error" })
   }
 })
 
-// Submit quiz attempt
+// @route   POST /api/quizzes/:id/submit
+// @desc    Submit quiz answers
+// @access  Private
 router.post("/:id/submit", auth, async (req, res) => {
   try {
-    const { answers, timeSpent } = req.body
+    const { answers } = req.body
     const quiz = await Quiz.findById(req.params.id)
 
     if (!quiz) {
@@ -34,48 +47,68 @@ router.post("/:id/submit", auth, async (req, res) => {
 
     // Calculate score
     let correctAnswers = 0
-    const gradedAnswers = answers.map((answer) => {
-      const question = quiz.questions.id(answer.questionId)
-      let isCorrect = false
+    const results = []
 
-      if (question.type === "multiple-choice") {
-        const correctOption = question.options.find((opt) => opt.isCorrect)
-        isCorrect = correctOption && correctOption.text === answer.answer
-      } else if (question.type === "true-false") {
-        isCorrect = question.correctAnswer === answer.answer
+    quiz.questions.forEach((question, index) => {
+      const userAnswer = answers[index]
+      const isCorrect = userAnswer === question.correctAnswer
+
+      if (isCorrect) {
+        correctAnswers++
       }
 
-      if (isCorrect) correctAnswers++
-
-      return {
-        questionId: answer.questionId,
-        answer: answer.answer,
+      results.push({
+        question: question.question,
+        userAnswer,
+        correctAnswer: question.correctAnswer,
         isCorrect,
-      }
+      })
     })
 
     const score = Math.round((correctAnswers / quiz.questions.length) * 100)
+    const passed = score >= quiz.passingScore
 
-    // Save attempt
-    quiz.attempts.push({
-      user: req.userId,
-      answers: gradedAnswers,
+    // Save result
+    const result = {
+      user: req.user.id,
       score,
-      timeSpent,
+      answers,
+      passed,
       completedAt: new Date(),
-    })
+    }
 
+    quiz.results.push(result)
     await quiz.save()
 
     res.json({
       score,
+      passed,
       correctAnswers,
       totalQuestions: quiz.questions.length,
-      passed: score >= quiz.passingScore,
-      answers: gradedAnswers,
+      results,
     })
   } catch (error) {
     console.error("Submit quiz error:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
+// @route   GET /api/quizzes/:id/results
+// @desc    Get quiz results for user
+// @access  Private
+router.get("/:id/results", auth, async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id)
+
+    if (!quiz) {
+      return res.status(404).json({ message: "Quiz not found" })
+    }
+
+    const userResults = quiz.results.filter((result) => result.user.toString() === req.user.id)
+
+    res.json(userResults)
+  } catch (error) {
+    console.error("Get quiz results error:", error)
     res.status(500).json({ message: "Server error" })
   }
 })
