@@ -1,40 +1,63 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const Profile = ({ popup = false, onClose }) => {
-    // Example user data (replace with real data or props/context)
-    const user = {
-        name: 'John Doe',
-        email: 'john.doe@example.com',
-        avatar: 'https://i.pravatar.cc/150?img=3',
-        bio: 'Passionate learner and web developer.',
-        location: 'San Francisco, CA',
-        joined: 'January 2022',
-        interests: ['React', 'Node.js', 'UI/UX', 'Open Source'],
-    };
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetch('http://localhost:5000/api/users/profile', {
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Authorization': 'Bearer <token>', // if using JWT
+            },
+        })
+            .then(res => res.json())
+            .then(data => {
+                setUser(data);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, []);
+
+    if (loading) {
+        return <div style={{ textAlign: 'center', marginTop: 60 }}>Loading...</div>;
+    }
+
+    if (!user) {
+        return <div style={{ textAlign: 'center', marginTop: 60, color: 'red' }}>Failed to load profile.</div>;
+    }
 
     const content = (
         <div style={popup ? styles.profileCardPopup : styles.profileCard}>
             <div style={styles.header}>
-                <img src={user.avatar} alt="Avatar" style={styles.avatar} />
+                <img src={user.avatar || 'https://i.pravatar.cc/150?img=3'} alt="Avatar" style={styles.avatar} />
                 <div>
                     <h2 style={styles.name}>{user.name}</h2>
-                    <p style={styles.location}><span role="img" aria-label="location">📍</span> {user.location}</p>
+                    <p style={styles.location}><span role="img" aria-label="location">📍</span> {user.location || 'Unknown'}</p>
+                    <p style={styles.role}><span role="img" aria-label="role">👤</span> {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Student'}</p>
                 </div>
             </div>
             <p style={styles.email}>{user.email}</p>
-            <p style={styles.bio}>{user.bio}</p>
+            <p style={styles.bio}>{user.bio || ''}</p>
             <div style={styles.meta}>
-                <span style={styles.joined}><span role="img" aria-label="calendar">📅</span> Joined {user.joined}</span>
+                <span style={styles.joined}><span role="img" aria-label="calendar">📅</span> Joined {user.joined || ''}</span>
             </div>
             <div style={styles.interestsSection}>
                 <h4 style={styles.interestsTitle}>Interests</h4>
                 <div style={styles.interests}>
-                    {user.interests.map((interest, idx) => (
+                    {(user.interests || []).map((interest, idx) => (
                         <span key={idx} style={styles.interestBadge}>{interest}</span>
                     ))}
                 </div>
             </div>
             <button style={styles.editBtn}>Edit Profile</button>
+            {/* Example: Show admin-only UI */}
+            {user.role === "admin" && (
+                <div style={{ marginTop: 20, color: "#6366f1", fontWeight: 600 }}>
+                    Admin Portal Access
+                </div>
+            )}
         </div>
     );
 
@@ -206,6 +229,12 @@ const styles = {
         cursor: 'pointer',
         boxShadow: '0 2px 8px rgba(99,102,241,0.12)',
         transition: 'background 0.2s',
+    },
+    role: {
+        color: '#6366f1',
+        fontSize: '1em',
+        marginTop: '4px',
+        fontWeight: 600,
     },
 };
 

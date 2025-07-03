@@ -1,10 +1,11 @@
 .navbar {
-  background-color: var(--white);
-  border-bottom: 1px solid var(--gray-200);
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-primary);
   position: sticky;
   top: 0;
   z-index: 100;
   box-shadow: var(--shadow-sm);
+  transition: background-color var(--transition-normal), border-color var(--transition-normal);
 }
 
 .navbar-content {
@@ -22,10 +23,20 @@
   font-weight: 700;
   color: var(--primary-color);
   text-decoration: none;
+  transition: color var(--transition-normal);
 }
 
 .brand-icon {
   font-size: var(--font-size-2xl);
+}
+
+.admin-badge {
+  background-color: var(--error-color);
+  color: var(--white);
+  font-size: var(--font-size-xs);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-sm);
+  margin-left: var(--spacing-2);
 }
 
 .navbar-menu {
@@ -35,14 +46,51 @@
 }
 
 .nav-link {
-  color: var(--gray-600);
+  color: var(--text-secondary);
   text-decoration: none;
   font-weight: 500;
-  transition: color 0.2s ease-in-out;
+  transition: color var(--transition-normal);
+  position: relative;
 }
 
 .nav-link:hover {
   color: var(--primary-color);
+}
+
+.nav-link.active::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--primary-color);
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.user-avatar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.avatar-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-primary);
+}
+
+.user-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
 }
 
 /* Mobile Responsive */
@@ -55,8 +103,34 @@
     font-size: var(--font-size-sm);
   }
 
+  .user-name {
+    display: none;
+  }
+
   .btn {
     padding: var(--spacing-2) var(--spacing-4);
     font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-brand {
+    font-size: var(--font-size-lg);
+  }
+
+  .brand-icon {
+    font-size: var(--font-size-xl);
+  }
+
+  .navbar-menu {
+    gap: var(--spacing-2);
+  }
+
+  .nav-link {
+    display: none;
+  }
+
+  .nav-link:last-child {
+    display: block;
   }
 }
