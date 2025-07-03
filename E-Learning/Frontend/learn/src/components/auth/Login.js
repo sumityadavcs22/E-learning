@@ -10,8 +10,8 @@ const Login = () => {
     email: "",
     password: "",
   })
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -29,18 +29,18 @@ const Login = () => {
     setError("")
 
     try {
-      // Mock login - replace with actual API call
-      if (formData.email && formData.password) {
-        const userData = {
-          id: 1,
-          name: "John Doe",
-          email: formData.email,
-          avatar: "/placeholder.svg?height=40&width=40",
-        }
-        login(userData)
-        navigate("/dashboard")
+      // Use the login function from context, which returns { success, error }
+      const response = await login(formData.email, formData.password)
+      if (!response || !response.success) {
+        setError(response?.error || "Login failed. Please try again.")
+        setLoading(false)
+        return
+      }
+      // Redirect based on role
+      if (response.user?.role === "admin") {
+        navigate("/admin")
       } else {
-        setError("Please fill in all fields")
+        navigate("/dashboard")
       }
     } catch (err) {
       setError("Login failed. Please try again.")
@@ -49,65 +49,87 @@ const Login = () => {
     }
   }
 
+  // Quick login buttons for testing
+  const quickLogin = async (role) => {
+    const credentials =
+      role === "admin"
+        ? { email: "admin@test.com", password: "admin123" }
+        : { email: "student@test.com", password: "student123" }
+
+    setLoading(true)
+    const result = await login(credentials.email, credentials.password)
+
+    if (result.success) {
+      navigate(role === "admin" ? "/admin" : "/dashboard")
+    } else {
+      setError(result.error)
+    }
+
+    setLoading(false)
+  }
+
   return (
-    <div className="auth-page">
-      <div className="container">
-        <div className="auth-container">
-          <div className="auth-card">
-            <div className="auth-header">
-              <h1>Welcome Back</h1>
-              <p>Sign in to continue your learning journey</p>
-            </div>
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-header">
+          <h2>Welcome Back</h2>
+          <p>Sign in to your account</p>
+        </div>
 
-            {error && <div className="error-message">{error}</div>}
+        {error && <div className="error-message">{error}</div>}
 
-            <form onSubmit={handleSubmit} className="auth-form">
-              <div className="form-group">
-                <label htmlFor="email" className="form-label">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="form-input"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="password" className="form-label">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="form-input"
-                  placeholder="Enter your password"
-                  required
-                />
-              </div>
-
-              <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-                {loading ? "Signing In..." : "Sign In"}
-              </button>
-            </form>
-
-            <div className="auth-footer">
-              <p>
-                Don't have an account?{" "}
-                <Link to="/register" className="auth-link">
-                  Sign up here
-                </Link>
-              </p>
-            </div>
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              placeholder="Enter your email"
+            />
           </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              placeholder="Enter your password"
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
+
+        {/* Quick Login for Testing */}
+        <div className="quick-login">
+          <p>Quick Login for Testing:</p>
+          <div className="quick-login-buttons">
+            <button onClick={() => quickLogin("admin")} className="btn btn-secondary btn-sm" disabled={loading}>
+              Login as Admin
+            </button>
+            <button onClick={() => quickLogin("student")} className="btn btn-outline btn-sm" disabled={loading}>
+              Login as Student
+            </button>
+          </div>
+        </div>
+
+        <div className="auth-footer">
+          <p>
+            Don't have an account?{" "}
+            <Link to="/register" className="auth-link">
+              Sign up
+            </Link>
+          </p>
         </div>
       </div>
     </div>

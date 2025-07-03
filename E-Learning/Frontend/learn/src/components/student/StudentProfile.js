@@ -182,11 +182,7 @@ const StudentProfile = () => {
             <p className="profile-email">{profile.email}</p>
             <p className="profile-bio">{profile.bio}</p>
             <div className="profile-links">
-              {profile.location && (
-                <span className="profile-link">
-                  📍 {profile.location}
-                </span>
-              )}
+              {profile.location && <span className="profile-link">📍 {profile.location}</span>}
               {profile.website && (
                 <a href={profile.website} target="_blank" rel="noopener noreferrer" className="profile-link">
                   🌐 Website
@@ -360,7 +356,9 @@ const StudentProfile = () => {
                       <div className="course-info">
                         <h3>{course.title}</h3>
                         <p>by {course.instructor}</p>
-                        <p className="enrollment-date">Enrolled: {new Date(course.enrolledDate).toLocaleDateString()}</p>
+                        <p className="enrollment-date">
+                          Enrolled: {new Date(course.enrolledDate).toLocaleDateString()}
+                        </p>
                       </div>
                       <div className="course-progress">
                         <div className="progress-bar">

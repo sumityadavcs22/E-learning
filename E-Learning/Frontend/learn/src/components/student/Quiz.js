@@ -238,7 +238,10 @@ const Quiz = () => {
               <h3>Question Review</h3>
               <div className="questions-review">
                 {results.results.map((result, index) => (
-                  <div key={result.questionId} className={`question-result ${result.isCorrect ? "correct" : "incorrect"}`}>
+                  <div
+                    key={result.questionId}
+                    className={`question-result ${result.isCorrect ? "correct" : "incorrect"}`}
+                  >
                     <div className="question-header">
                       <span className="question-number">Q{index + 1}</span>
                       <span className={`result-icon ${result.isCorrect ? "correct" : "incorrect"}`}>
@@ -368,11 +371,7 @@ const Quiz = () => {
         {/* Navigation */}
         <div className="quiz-navigation">
           <div className="nav-buttons">
-            <button
-              onClick={handlePreviousQuestion}
-              disabled={currentQuestion === 0}
-              className="btn btn-secondary"
-            >
+            <button onClick={handlePreviousQuestion} disabled={currentQuestion === 0} className="btn btn-secondary">
               ← Previous
             </button>
 
