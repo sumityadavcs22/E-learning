@@ -188,6 +188,40 @@ const courseSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    certificatesIssued: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Certificate",
+      },
+    ],
+    payments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Payment",
+      },
+    ],
+    completionCriteria: {
+      minimumProgress: {
+        type: Number,
+        default: 100,
+        min: 0,
+        max: 100,
+      },
+      requireQuizCompletion: {
+        type: Boolean,
+        default: false,
+      },
+      minimumQuizScore: {
+        type: Number,
+        default: 70,
+        min: 0,
+        max: 100,
+      },
+      requireAllLessons: {
+        type: Boolean,
+        default: true,
+      },
+    },
   },
   {
     timestamps: true,
@@ -252,6 +286,40 @@ courseSchema.methods.isUserEnrolled = function (userId) {
 courseSchema.methods.getUserProgress = function (userId) {
   const enrollment = this.enrolledStudents.find((enrollment) => enrollment.student.toString() === userId.toString())
   return enrollment ? enrollment.progress : 0
+}
+
+// Method to check if user is eligible for certificate
+courseSchema.methods.isEligibleForCertificate = function (userId, userProgress, quizScore = null) {
+  const criteria = this.completionCriteria
+
+  // Check minimum progress
+  if (userProgress < criteria.minimumProgress) {
+    return { eligible: false, reason: "Insufficient course progress" }
+  }
+
+  // Check quiz completion if required
+  if (criteria.requireQuizCompletion) {
+    if (quizScore === null) {
+      return { eligible: false, reason: "Quiz not completed" }
+    }
+    if (quizScore < criteria.minimumQuizScore) {
+      return { eligible: false, reason: "Quiz score below minimum requirement" }
+    }
+  }
+
+  return { eligible: true, reason: "All criteria met" }
+}
+
+// Method to calculate completion rate
+courseSchema.methods.getCompletionRate = function () {
+  const totalEnrolled = this.enrolledStudents.length
+  if (totalEnrolled === 0) return 0
+
+  const completed = this.enrolledStudents.filter(
+    (enrollment) => enrollment.progress >= this.completionCriteria.minimumProgress,
+  ).length
+
+  return Math.round((completed / totalEnrolled) * 100)
 }
 
 module.exports = mongoose.model("Course", courseSchema)

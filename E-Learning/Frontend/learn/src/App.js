@@ -21,11 +21,14 @@ import CourseCatalog from "./components/student/CourseCatalog"
 import CoursePlayer from "./components/student/CoursePlayer"
 import Quiz from "./components/student/Quiz"
 import StudentProfile from "./components/student/StudentProfile"
+import MyCertificates from "./components/student/MyCertificates"
+import CoursePurchase from "./components/student/CoursePurchase"
 
 // Admin Portal
 import AdminDashboard from "./components/admin/AdminDashboard"
 import UserManagement from "./components/admin/UserManagement"
 import CourseManagement from "./components/admin/CourseManagement"
+import PaymentManagement from "./components/admin/PaymentManagement"
 import Analytics from "./components/admin/Analytics"
 import AdminSettings from "./components/admin/AdminSettings"
 
@@ -76,6 +79,22 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/certificates"
+                element={
+                  <ProtectedRoute>
+                    <MyCertificates />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/purchase/:courseId"
+                element={
+                  <ProtectedRoute>
+                    <CoursePurchase />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Admin Routes */}
               <Route
@@ -99,6 +118,14 @@ function App() {
                 element={
                   <AdminRoute>
                     <CourseManagement />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/payments"
+                element={
+                  <AdminRoute>
+                    <PaymentManagement />
                   </AdminRoute>
                 }
               />

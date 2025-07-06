@@ -223,11 +223,11 @@ router.delete("/:id", auth, async (req, res) => {
   }
 })
 
-// Enroll in a course
+// Enroll in a course (for free courses only - paid courses use payment flow)
 router.post("/:id/enroll", auth, async (req, res) => {
   try {
     const course = await Course.findById(req.params.id)
-    const user = await User.findById(req.user.id)
+    const user = await User.findById(req.user.userId)
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" })
@@ -244,7 +244,16 @@ router.post("/:id/enroll", auth, async (req, res) => {
       return res.status(400).json({ message: "Already enrolled in this course" })
     }
 
-    // Add to user's enrolled courses
+    // For paid courses, redirect to payment
+    if (course.price > 0) {
+      return res.status(400).json({ 
+        message: "This is a paid course. Please use the payment endpoint to enroll.",
+        price: course.price,
+        currency: "USD"
+      })
+    }
+
+    // Add to user's enrolled courses (free courses only)
     user.enrolledCourses.push({
       course: req.params.id,
       enrolledAt: new Date(),
@@ -252,12 +261,16 @@ router.post("/:id/enroll", auth, async (req, res) => {
     })
 
     // Add to course's enrolled students
-    course.enrolledStudents.push(req.user.id)
+    course.enrolledStudents.push({
+      student: req.user.userId,
+      enrolledAt: new Date(),
+      progress: 0,
+    })
 
     await user.save()
     await course.save()
 
-    res.json({ message: "Successfully enrolled in course" })
+    res.json({ message: "Successfully enrolled in free course" })
   } catch (error) {
     console.error("Enroll course error:", error)
     res.status(500).json({ message: "Server error" })
@@ -310,6 +323,106 @@ router.post("/:id/rate", auth, async (req, res) => {
     res.json({ message: "Rating submitted successfully" })
   } catch (error) {
     console.error("Rate course error:", error)
+    res.status(500).json({ message: "Server error" })
+  }
+})
+
+// Update course progress
+router.post("/:id/progress", auth, async (req, res) => {
+  try {
+    const { progress, lessonId } = req.body
+    const courseId = req.params.id
+    const userId = req.user.userId
+
+    const course = await Course.findById(courseId)
+    const user = await User.findById(userId)
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" })
+    }
+
+    // Check if user is enrolled
+    const userEnrollment = user.enrolledCourses.find((enrollment) => enrollment.course.toString() === courseId)
+    const courseEnrollment = course.enrolledStudents.find((enrollment) => enrollment.student.toString() === userId)
+
+    if (!userEnrollment || !courseEnrollment) {
+      return res.status(400).json({ message: "Not enrolled in this course" })
+    }
+
+    // Update progress
+    const newProgress = Math.min(100, Math.max(0, progress))
+    userEnrollment.progress = newProgress
+    userEnrollment.lastAccessed = new Date()
+    courseEnrollment.progress = newProgress
+
+    // Add completed lesson if provided
+    if (lessonId && !userEnrollment.completedLessons.includes(lessonId)) {
+      userEnrollment.completedLessons.push(lessonId)
+    }
+
+    await user.save()
+    await course.save()
+
+    // Check if eligible for certificate and auto-issue if 100% complete
+    if (newProgress === 100) {
+      try {
+        const Certificate = require("../models/Certificate")
+        
+        // Check if certificate already exists
+        const existingCertificate = await Certificate.findOne({
+          student: userId,
+          course: courseId,
+        })
+
+        if (!existingCertificate) {
+          const eligibility = course.isEligibleForCertificate(userId, newProgress, 85) // Assume passing quiz score
+          
+          if (eligibility.eligible) {
+            const certificate = new Certificate({
+              student: userId,
+              course: courseId,
+              instructor: course.instructor,
+              completionDate: new Date(),
+              grade: "Pass",
+              scorePercentage: newProgress,
+              skills: course.whatYouWillLearn || [],
+              metadata: {
+                courseDuration: Math.round(course.totalDuration / 60),
+                totalLessons: course.lessons.length,
+                completedLessons: userEnrollment.completedLessons.length,
+              },
+            })
+
+            await certificate.save()
+
+            // Update user and course
+            user.certificates.push(certificate._id)
+            course.certificatesIssued.push(certificate._id)
+            
+            await user.save()
+            await course.save()
+
+            return res.json({
+              message: "Progress updated and certificate issued!",
+              progress: newProgress,
+              certificateIssued: true,
+              certificateId: certificate.certificateId,
+            })
+          }
+        }
+      } catch (certError) {
+        console.error("Certificate auto-issuance error:", certError)
+        // Continue even if certificate issuance fails
+      }
+    }
+
+    res.json({
+      message: "Progress updated successfully",
+      progress: newProgress,
+      certificateIssued: false,
+    })
+  } catch (error) {
+    console.error("Update progress error:", error)
     res.status(500).json({ message: "Server error" })
   }
 })

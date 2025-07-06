@@ -68,6 +68,18 @@ const userSchema = new mongoose.Schema(
         icon: String,
       },
     ],
+    certificates: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Certificate",
+      },
+    ],
+    payments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Payment",
+      },
+    ],
     preferences: {
       theme: {
         type: String,
